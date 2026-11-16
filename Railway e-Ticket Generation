@@ -1,0 +1,105 @@
+import java.util.StringJoiner;
+
+public class Q1Bench {
+
+    // --- 1. Main Approaches ---
+
+    // O(n^2) time complexity due to String immutability
+    static String viaPlus(String[] f) { 
+        String s = ""; 
+        for (String x : f) s = s + x; 
+        return s; 
+    }
+
+    // O(n) time complexity amortised
+    static String viaBuilder(String[] f) { 
+        StringBuilder sb = new StringBuilder(); 
+        for (String x : f) sb.append(x);
+        return sb.toString(); 
+    }
+
+    // O(n) time complexity but synchronized (thread-safe)
+    static String viaBuffer(String[] f) { 
+        StringBuffer sb = new StringBuffer(); 
+        for (String x : f) sb.append(x);
+        return sb.toString(); 
+    }
+
+    // --- 2. Alternative Concepts ---
+
+    static String viaJoin(String[] f) { 
+        return String.join("", f); 
+    }
+
+    static String viaJoiner(String[] f) { 
+        StringJoiner j = new StringJoiner(""); 
+        for (String x : f) j.add(x); 
+        return j.toString(); 
+    }
+
+    static String viaFormat(String[] f) { 
+        String s = ""; 
+        for (String x : f) s = String.format("%s%s", s, x); 
+        return s; 
+    }
+
+    // --- 3. Workload Runner & Main Method ---
+
+    public static void main(String[] args) {
+        System.out.println("--- Q1 Benchmark: String vs StringBuilder vs StringBuffer ---\n");
+
+        // Workload 1 (W1): short ticket, 8 fields, 100,000 tickets
+        String[] w1Fields = generateFields(8);
+        runBenchmark("W1 (8 fields x 100,000 tickets)", w1Fields, 100000);
+
+        // Workload 2 (W2): 50 fields, 10,000 tickets
+        String[] w2Fields = generateFields(50);
+        runBenchmark("W2 (50 fields x 10,000 tickets)", w2Fields, 10000);
+
+        // Workload 3 (W3): huge manifest, 5,000 fields, 1 ticket
+        String[] w3Fields = generateFields(5000);
+        runBenchmark("W3 (5,000 fields x 1 ticket)", w3Fields, 1);
+        
+        // Workload 3b (W3b): massive manifest, 20,000 fields, 1 ticket
+        String[] w3bFields = generateFields(20000);
+        runBenchmark("W3b (20,000 fields x 1 ticket)", w3bFields, 1);
+    }
+
+    // Helper method to measure and print execution times
+    private static void runBenchmark(String label, String[] fields, int iterations) {
+        System.out.println("Running " + label + "...");
+        
+        // Warm-up for JIT compiler (optional but recommended for accurate nanosecond readings)
+        for(int i=0; i<100; i++) viaBuilder(fields);
+
+        // 1. String +
+        long startPlus = System.nanoTime();
+        for (int i = 0; i < iterations; i++) viaPlus(fields);
+        long endPlus = System.nanoTime();
+
+        // 2. StringBuilder
+        long startBuilder = System.nanoTime();
+        for (int i = 0; i < iterations; i++) viaBuilder(fields);
+        long endBuilder = System.nanoTime();
+
+        // 3. StringBuffer
+        long startBuffer = System.nanoTime();
+        for (int i = 0; i < iterations; i++) viaBuffer(fields);
+        long endBuffer = System.nanoTime();
+
+        // Print results (converted from nanoseconds to milliseconds for easier reading)
+        System.out.printf("String +      : %.2f ms%n", (endPlus - startPlus) / 1_000_000.0);
+        System.out.printf("StringBuilder : %.2f ms%n", (endBuilder - startBuilder) / 1_000_000.0);
+        System.out.printf("StringBuffer  : %.2f ms%n", (endBuffer - startBuffer) / 1_000_000.0);
+        System.out.println("---------------------------------------------------");
+    }
+
+    // Helper method to generate dummy ticket fields (approx 14 chars each, like "F17=value17;")
+    private static String[] generateFields(int n) {
+        String[] fields = new String[n];
+        for (int i = 0; i < n; i++) {
+            fields[i] = "F" + i + "=value" + i + "; ";
+        }
+        return fields;
+    }
+}
