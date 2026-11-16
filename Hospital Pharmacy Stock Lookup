@@ -1,0 +1,111 @@
+import java.util.*;
+
+class Med {
+    String code;
+    int stock;
+
+    public Med(String code, int stock) {
+        this.code = code;
+        this.stock = stock;
+    }
+    
+    public String getCode() {
+        return code;
+    }
+}
+
+public class Q4Bench {
+
+    public static void main(String[] args) {
+        System.out.println("--- Q4 Benchmark: HashMap vs TreeMap vs LinkedHashMap ---\n");
+        int[] sizes = {1000, 10000, 100000, 1000000};
+
+        for (int n : sizes) {
+            System.out.println("==========================================");
+            System.out.println("Testing Size (n) = " + n + " medicines");
+            System.out.println("==========================================");
+
+            // Generate scattered, non-sorted medicine codes so insertion order != code order
+            List<String> insertionOrderKeys = new ArrayList<>();
+            for (int i = 0; i < n; i++) {
+                insertionOrderKeys.add(String.format("MED%07d", i)); 
+            }
+            Collections.shuffle(insertionOrderKeys, new Random(42)); 
+            
+            // Create the Med objects
+            List<Med> medicines = new ArrayList<>();
+            for (String key : insertionOrderKeys) {
+                medicines.add(new Med(key, 100)); // Arbitrary stock of 100
+            }
+
+            // Sorted expected keys for order validation
+            List<String> codeOrderKeys = new ArrayList<>(insertionOrderKeys);
+            Collections.sort(codeOrderKeys);
+
+            runMapTests("HashMap", new HashMap<>(), medicines, insertionOrderKeys, codeOrderKeys);
+            runMapTests("TreeMap", new TreeMap<>(), medicines, insertionOrderKeys, codeOrderKeys);
+            runMapTests("LinkedHashMap", new LinkedHashMap<>(), medicines, insertionOrderKeys, codeOrderKeys);
+        }
+    }
+
+    private static void runMapTests(String mapName, Map<String, Med> map, List<Med> medicines, 
+                                    List<String> expectedInsertionOrder, List<String> expectedCodeOrder) {
+        
+        System.out.println("\n--- " + mapName + " ---");
+        int n = medicines.size();
+        int lookupCount = Math.min(100000, n); // Ensure we don't look up more than exists for small n if doing random
+
+        // 1. Put (Insert)
+        long start = System.nanoTime();
+        for (Med m : medicines) {
+            map.put(m.code, m);
+        }
+        long putTime = (System.nanoTime() - start) / n;
+        System.out.printf("put               : %d ns/op%n", putTime);
+
+        // 2. Get (Lookup) - 100k random lookups
+        Random rand = new Random(123);
+        start = System.nanoTime();
+        for (int i = 0; i < 100000; i++) {
+            String randomKey = expectedInsertionOrder.get(rand.nextInt(n));
+            map.get(randomKey);
+        }
+        long totalLookupMs = (System.nanoTime() - start) / 1_000_000;
+        long getNsPerOp = (System.nanoTime() - start) / 100000;
+        System.out.printf("get               : %d ns/op%n", getNsPerOp);
+        System.out.printf("100k lookups      : %d ms%n", totalLookupMs);
+
+        // 3. Code-Order Report
+        start = System.nanoTime();
+        List<String> actualCodeOrder = new ArrayList<>();
+        boolean sortedRequired = false;
+        
+        if (map instanceof TreeMap) {
+            // TreeMap naturally produces code order
+            for (String key : map.keySet()) actualCodeOrder.add(key);
+        } else {
+            // HashMap and LinkedHashMap require copying and sorting (O(n log n))
+            actualCodeOrder.addAll(map.keySet());
+            Collections.sort(actualCodeOrder);
+            sortedRequired = true;
+        }
+        long codeOrderMs = (System.nanoTime() - start) / 1_000_000;
+        boolean isCodeOrderCorrect = actualCodeOrder.equals(expectedCodeOrder);
+        System.out.printf("code-order report : %.2f ms %s %s%n", 
+            codeOrderMs / 1.0, 
+            (sortedRequired ? "(sort)" : ""), 
+            (isCodeOrderCorrect ? "✓" : "X order lost"));
+
+        // 4. Insertion-Order Report
+        start = System.nanoTime();
+        List<String> actualInsertionOrder = new ArrayList<>();
+        for (String key : map.keySet()) {
+            actualInsertionOrder.add(key);
+        }
+        long insertionOrderMs = (System.nanoTime() - start) / 1_000_000;
+        boolean isInsertionOrderCorrect = actualInsertionOrder.equals(expectedInsertionOrder);
+        System.out.printf("insert-order rep. : %.2f ms %s%n", 
+            insertionOrderMs / 1.0, 
+            (isInsertionOrderCorrect ? "✓" : "X order lost"));
+    }
+}
