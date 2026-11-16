@@ -1,0 +1,144 @@
+import java.util.*;
+
+public class Q2Bench {
+
+    public static void main(String[] args) {
+        System.out.println("--- Q2 Benchmark: ArrayList vs LinkedList vs ArrayDeque ---\n");
+        int[] sizes = {1000, 10000, 100000};
+
+        for (int n : sizes) {
+            System.out.println("==========================================");
+            System.out.println("Testing Size (n) = " + n);
+            System.out.println("==========================================");
+
+            runStandardOperations(n);
+            runUpNextQueueWorkload(n);
+        }
+    }
+
+    private static void runStandardOperations(int n) {
+        System.out.println("\n--- Standard List Operations ---");
+        
+        // 1. Add at End
+        long start = System.nanoTime();
+        List<Integer> arrayList = new ArrayList<>();
+        for (int i = 0; i < n; i++) arrayList.add(i);
+        System.out.printf("ArrayList add at end      : %d ns/op%n", (System.nanoTime() - start) / n);
+
+        start = System.nanoTime();
+        List<Integer> linkedList = new LinkedList<>();
+        for (int i = 0; i < n; i++) linkedList.add(i);
+        System.out.printf("LinkedList add at end     : %d ns/op%n", (System.nanoTime() - start) / n);
+
+        start = System.nanoTime();
+        Deque<Integer> arrayDeque = new ArrayDeque<>();
+        for (int i = 0; i < n; i++) arrayDeque.addLast(i);
+        System.out.printf("ArrayDeque add at end     : %d ns/op%n", (System.nanoTime() - start) / n);
+        
+        // Manual array shifting (add at end)
+        start = System.nanoTime();
+        int[] plainArray = new int[n];
+        for (int i = 0; i < n; i++) plainArray[i] = i; // No shift needed for end
+        System.out.printf("Plain Array add at end    : %d ns/op%n\n", (System.nanoTime() - start) / n);
+
+        int m = Math.min(n, 2000); // Test subset of operations for slow shifting methods
+
+        // 2. Insert at Front
+        start = System.nanoTime();
+        for (int i = 0; i < m; i++) arrayList.add(0, i);
+        System.out.printf("ArrayList insert front    : %d ns/op%n", (System.nanoTime() - start) / m);
+
+        start = System.nanoTime();
+        for (int i = 0; i < m; i++) linkedList.add(0, i);
+        System.out.printf("LinkedList insert front   : %d ns/op%n", (System.nanoTime() - start) / m);
+
+        start = System.nanoTime();
+        for (int i = 0; i < m; i++) arrayDeque.addFirst(i);
+        System.out.printf("ArrayDeque insert front   : %d ns/op%n", (System.nanoTime() - start) / m);
+        
+        // Manual array shifting (insert at front)
+        start = System.nanoTime();
+        for (int i = 0; i < m; i++) {
+            int[] newArr = new int[plainArray.length + 1];
+            System.arraycopy(plainArray, 0, newArr, 1, plainArray.length);
+            newArr[0] = i;
+            plainArray = newArr;
+        }
+        System.out.printf("Plain Array insert front  : %d ns/op%n\n", (System.nanoTime() - start) / m);
+
+        // 3. Insert in Middle (ArrayDeque does not support this)
+        start = System.nanoTime();
+        for (int i = 0; i < m; i++) arrayList.add(arrayList.size() / 2, i);
+        System.out.printf("ArrayList insert middle   : %d ns/op%n", (System.nanoTime() - start) / m);
+
+        start = System.nanoTime();
+        for (int i = 0; i < m; i++) linkedList.add(linkedList.size() / 2, i);
+        System.out.printf("LinkedList insert middle  : %d ns/op%n", (System.nanoTime() - start) / m);
+
+        System.out.println("ArrayDeque insert middle  : n/a (not supported)");
+
+        // 4. Get K-th (Random Access)
+        Random rand = new Random();
+        start = System.nanoTime();
+        for (int i = 0; i < m; i++) arrayList.get(rand.nextInt(arrayList.size()));
+        System.out.printf("ArrayList get k-th        : %d ns/op%n", (System.nanoTime() - start) / m);
+
+        start = System.nanoTime();
+        for (int i = 0; i < m; i++) linkedList.get(rand.nextInt(linkedList.size()));
+        System.out.printf("LinkedList get k-th       : %d ns/op%n", (System.nanoTime() - start) / m);
+        
+        System.out.println("ArrayDeque get k-th       : n/a (not supported)");
+
+        // 5. Iterate (For-Each)
+        start = System.nanoTime();
+        for (Integer val : arrayList) { /* loop */ }
+        System.out.printf("\nArrayList for-each iter   : %d ns/op%n", (System.nanoTime() - start) / arrayList.size());
+
+        start = System.nanoTime();
+        for (Integer val : linkedList) { /* loop */ }
+        System.out.printf("LinkedList for-each iter  : %d ns/op%n", (System.nanoTime() - start) / linkedList.size());
+
+        start = System.nanoTime();
+        for (Integer val : arrayDeque) { /* loop */ }
+        System.out.printf("ArrayDeque for-each iter  : %d ns/op%n", (System.nanoTime() - start) / arrayDeque.size());
+    }
+
+    private static void runUpNextQueueWorkload(int n) {
+        System.out.println("\n--- 'Up Next' Queue Workload ---");
+        // Workload: 1/3 addFirst, 1/3 addLast, 1/3 removeFirst
+        int operations = Math.min(20000, n); 
+
+        // ArrayList (Using as a queue)
+        List<Integer> al = new ArrayList<>();
+        for(int i=0; i<n; i++) al.add(i);
+        long start = System.nanoTime();
+        for (int i = 0; i < operations / 3; i++) {
+            al.add(0, i);                 // addFirst (shifts all)
+            al.add(i);                    // addLast
+            al.remove(0);                 // removeFirst (shifts all)
+        }
+        System.out.printf("ArrayList Up Next         : %d ns/op%n", (System.nanoTime() - start) / operations);
+
+        // LinkedList
+        LinkedList<Integer> ll = new LinkedList<>();
+        for(int i=0; i<n; i++) ll.add(i);
+        start = System.nanoTime();
+        for (int i = 0; i < operations / 3; i++) {
+            ll.addFirst(i);
+            ll.addLast(i);
+            ll.removeFirst();
+        }
+        System.out.printf("LinkedList Up Next        : %d ns/op%n", (System.nanoTime() - start) / operations);
+
+        // ArrayDeque
+        ArrayDeque<Integer> ad = new ArrayDeque<>();
+        for(int i=0; i<n; i++) ad.add(i);
+        start = System.nanoTime();
+        for (int i = 0; i < operations / 3; i++) {
+            ad.addFirst(i);
+            ad.addLast(i);
+            ad.removeFirst();
+        }
+        System.out.printf("ArrayDeque Up Next        : %d ns/op%n", (System.nanoTime() - start) / operations);
+    }
+}
